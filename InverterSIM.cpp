@@ -4,6 +4,8 @@
 #include <sstream>
 #include <iomanip>
 #include <cstdint>
+#include <algorithm>
+#include <cctype>
 
 InverterSIM::InverterSIM(const std::string& apiKey) : adapter_(apiKey) {}
 
@@ -35,10 +37,12 @@ std::string buildReadFrame(uint8_t slaveAddr, uint16_t startAddr, uint16_t numRe
 // Helper: Parse Modbus Read response (returns vector of register values)
 std::vector<uint16_t> parseReadResponse(const std::string& resp, int numRegs) {
     std::vector<uint16_t> regs;
-    if (resp.size() < 6 + numRegs * 4) return regs;
+    // --- CHANGED: cast numRegs to size_t to fix -Wsign-compare ---
+    if (resp.size() < 6 + static_cast<size_t>(numRegs) * 4) return regs;
+    // -------------------------------------------------------------
     for (int i = 0; i < numRegs; ++i) {
         int idx = 6 + i * 4;
-        uint16_t val = std::stoi(resp.substr(idx, 4), nullptr, 16);
+        uint16_t val = static_cast<uint16_t>(std::stoi(resp.substr(idx, 4), nullptr, 16));
         regs.push_back(val);
     }
     return regs;
@@ -70,7 +74,7 @@ bool InverterSIM::readRegisters(uint16_t startAddr, uint16_t numRegs, std::vecto
             attempts++;
             continue;
         }
-        uint16_t receivedCRC = frameBytes[frameBytes.size()-2] | (frameBytes[frameBytes.size()-1] << 8);
+        uint16_t receivedCRC = static_cast<uint16_t>(frameBytes[frameBytes.size()-2] | (frameBytes[frameBytes.size()-1] << 8));
         uint16_t calcCRC = calculateCRC(std::vector<uint8_t>(frameBytes.begin(), frameBytes.end()-2));
         if (receivedCRC != calcCRC) {
             std::cerr << "CRC error: received " << std::hex << receivedCRC << ", calculated " << calcCRC << std::dec << " (attempt " << (attempts+1) << ")\n";
@@ -106,7 +110,7 @@ bool InverterSIM::setExportPowerPercent(int value) {
     // Build frame for writing export power percent (register 8)
     uint8_t slaveAddr = 0x11;
     uint16_t regAddr = 8;
-    uint16_t regValue = value;
+    uint16_t regValue = static_cast<uint16_t>(value);
     std::vector<uint8_t> frame = {
         slaveAddr,
         0x06,
@@ -122,6 +126,18 @@ bool InverterSIM::setExportPowerPercent(int value) {
     for (auto b : frame)
         oss << std::hex << std::setw(2) << std::setfill('0') << (int)b;
     std::string req = oss.str();
+
+    // --- ADDED: small helper to normalize hex strings for robust comparison ---
+    auto normalize_hex = [](std::string s) {
+        s.erase(std::remove_if(s.begin(), s.end(),
+                               [](unsigned char c){ return std::isspace(c); }),
+                s.end());
+        std::transform(s.begin(), s.end(), s.begin(),
+                       [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
+        return s;
+    };
+    // -------------------------------------------------------------------------
+
     int attempts = 0;
     while (attempts < 3) {
         if (!adapter_.sendWriteRequest(req, resp)) {
@@ -144,7 +160,7 @@ bool InverterSIM::setExportPowerPercent(int value) {
             attempts++;
             continue;
         }
-        uint16_t receivedCRC = frameBytes[frameBytes.size()-2] | (frameBytes[frameBytes.size()-1] << 8);
+        uint16_t receivedCRC = static_cast<uint16_t>(frameBytes[frameBytes.size()-2] | (frameBytes[frameBytes.size()-1] << 8));
         uint16_t calcCRC = calculateCRC(std::vector<uint8_t>(frameBytes.begin(), frameBytes.end()-2));
         if (receivedCRC != calcCRC) {
             std::cerr << "CRC error: received " << std::hex << receivedCRC << ", calculated " << calcCRC << std::dec << " (attempt " << (attempts+1) << ")\n";
@@ -158,8 +174,10 @@ bool InverterSIM::setExportPowerPercent(int value) {
             attempts++;
             continue;
         }
-        // Success: echo frame
-        if (resp == req) return true;
+        // Success: echo frame (case/whitespace agnostic)
+        // --- CHANGED: compare normalized hex strings instead of raw strings ---
+        if (normalize_hex(resp) == normalize_hex(req)) return true;
+        // ---------------------------------------------------------------------
         std::cerr << "Write response mismatch (attempt " << (attempts+1) << ")\n";
         attempts++;
     }
