@@ -26,6 +26,8 @@ bool post_json(const std::string& url, const std::string& apiKey,
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    // Set timeout for CURL request (5 seconds)
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
 
     CURLcode res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
