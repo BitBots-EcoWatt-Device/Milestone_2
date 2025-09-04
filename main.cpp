@@ -4,8 +4,26 @@
 #include <mutex>
 #include <chrono>
 #include "InverterSIM.h"
+#include <fstream>
+#include <sstream>
+#include <map>
+#include <algorithm>
 
 // ================= Buffer & Sample ==================
+// ================= Config Reader ==================
+std::map<std::string, std::string> readConfig(const std::string& path) {
+    std::ifstream f(path);
+    std::map<std::string, std::string> cfg;
+    std::string line;
+    while (std::getline(f, line)) {
+        line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
+        if (line.empty() || line[0] == '#') continue;
+        auto pos = line.find('=');
+        if (pos == std::string::npos) continue;
+        cfg[line.substr(0, pos)] = line.substr(pos + 1);
+    }
+    return cfg;
+}
 struct Sample { float voltage; float current; long long timestamp; };
 
 class DataBuffer {
@@ -55,17 +73,23 @@ void uploadLoop(DataBuffer& buf, std::chrono::milliseconds upInt) {
 
 // ================= Main ==================
 int main(){
-    std::string apiKey = "NjhhZWIwNDU1ZDdmMzg3MzNiMTQ5YTFjOjY4YWViMDQ1NWQ3ZjM4NzMzYjE0OWExMg==";
+    auto cfg = readConfig("config.txt");
+    std::string apiKey = cfg.count("api_key") ? cfg["api_key"] : "";
+    int pollInt = cfg.count("poll_interval_ms") ? std::stoi(cfg["poll_interval_ms"]) : 1000;
+    int upInt = cfg.count("write_interval_ms") ? std::stoi(cfg["write_interval_ms"]) : 15000;
+    int exportPower = cfg.count("export_power_percent") ? std::stoi(cfg["export_power_percent"]) : 20;
+    size_t bufCap = 30;
+
     InverterSIM sim(apiKey);
 
     // Demo: write once
-    if (sim.setExportPowerPercent(20)) {
-        std::cout<<"Export power set to 20%\n";
+    if (sim.setExportPowerPercent(exportPower)) {
+        std::cout << "Export power set to " << exportPower << "%\n";
     }
 
-    DataBuffer buffer(30);
-    std::thread pollT(pollLoop,std::ref(sim),std::ref(buffer),std::chrono::milliseconds(1000));
-    std::thread upT(uploadLoop,std::ref(buffer),std::chrono::milliseconds(15000));
+    DataBuffer buffer(bufCap);
+    std::thread pollT(pollLoop, std::ref(sim), std::ref(buffer), std::chrono::milliseconds(pollInt));
+    std::thread upT(uploadLoop, std::ref(buffer), std::chrono::milliseconds(upInt));
     pollT.join(); upT.join();
     return 0;
 }

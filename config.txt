@@ -1,0 +1,7 @@
+# EcoWatt Device Configuration
+# Format: key=value (one per line)
+poll_interval_ms=1000
+registers=0,1
+write_interval_ms=15000
+export_power_percent=20
+api_key=NjhhZWIwNDU1ZDdmMzg3MzNiMTQ5YTFjOjY4YWViMDQ1NWQ3ZjM4NzMzYjE0OWExMg==
