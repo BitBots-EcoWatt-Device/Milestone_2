@@ -113,6 +113,7 @@ void uploadLoop(DataBuffer& buf, std::chrono::milliseconds upInt, const std::vec
 
 // ================= Main ==================
 int main() {
+    std::cout << "Program started!" << std::endl;
     auto cfg = readConfig("config.txt");
     std::string apiKey = cfg.count("api_key") ? cfg["api_key"] : "";
     int pollInt = cfg.count("poll_interval_ms") ? std::stoi(cfg["poll_interval_ms"]) : 1000;
