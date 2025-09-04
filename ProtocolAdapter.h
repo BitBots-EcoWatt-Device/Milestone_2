@@ -1,7 +1,9 @@
 #ifndef PROTOCOL_ADAPTER_H
 #define PROTOCOL_ADAPTER_H
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 class ProtocolAdapter {
 public:
@@ -22,5 +24,9 @@ private:
 // Internal helper (hidden from main)
 bool post_json(const std::string& url, const std::string& apiKey,
                const std::string& frameHex, std::string& outFrameHex);
+
+// CRC and error code helpers for use in other files
+uint16_t calculateCRC(const std::vector<uint8_t>& data);
+std::string modbusExceptionMessage(uint8_t code);
 
 #endif

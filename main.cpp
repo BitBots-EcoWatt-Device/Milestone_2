@@ -61,11 +61,36 @@ int main(){
     // Demo: write once
     if (sim.setExportPowerPercent(20)) {
         std::cout<<"Export power set to 20%\n";
+    } else {
+        std::cerr<<"Failed to set export power percent\n";
     }
 
+    // Demo: dynamic register read (temperature and export power percent)
+    std::vector<uint16_t> values;
+    if (sim.readRegisters(7, 2, values)) {
+        float temperature = values[0] / 10.0f;
+        int exportPercent = values[1];
+        std::cout << "Temperature: " << temperature << " C\n";
+        std::cout << "Export Power Percent: " << exportPercent << " %\n";
+    } else {
+        std::cerr << "Failed to read temperature and export power percent\n";
+    }
+
+    // Demo: dynamic register read (voltage and current)
+    std::vector<uint16_t> vc_values;
+    if (sim.readRegisters(0, 2, vc_values)) {
+        float voltage = vc_values[0] / 10.0f;
+        float current = vc_values[1] / 10.0f;
+        std::cout << "[Dynamic] Voltage: " << voltage << " V\n";
+        std::cout << "[Dynamic] Current: " << current << " A\n";
+    } else {
+        std::cerr << "Failed to read voltage and current registers dynamically\n";
+    }
+
+    // Start polling voltage/current as before
     DataBuffer buffer(30);
-    std::thread pollT(pollLoop,std::ref(sim),std::ref(buffer),std::chrono::milliseconds(1000));
-    std::thread upT(uploadLoop,std::ref(buffer),std::chrono::milliseconds(15000));
+    std::thread pollT(pollLoop,std::ref(sim),std::ref(buffer),std::chrono::milliseconds(5000));
+    std::thread upT(uploadLoop,std::ref(buffer),std::chrono::milliseconds(30000));
     pollT.join(); upT.join();
     return 0;
-}
+}   
