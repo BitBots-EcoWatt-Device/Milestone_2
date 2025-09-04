@@ -46,9 +46,29 @@ bool post_json(const std::string& url, const std::string& apiKey,
 ProtocolAdapter::ProtocolAdapter(const std::string& apiKey) : apiKey_(apiKey) {}
 
 bool ProtocolAdapter::sendReadRequest(const std::string& frameHex, std::string& outFrameHex) {
-    return post_json(readURL, apiKey_, frameHex, outFrameHex);
+    int attempts = 0;
+    while (attempts < 3) {
+        if (post_json(readURL, apiKey_, frameHex, outFrameHex)) {
+            return true;
+        } else {
+            std::cerr << "sendReadRequest failed (attempt " << (attempts+1) << ")\n";
+        }
+        attempts++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // brief backoff
+    }
+    return false;
 }
 
 bool ProtocolAdapter::sendWriteRequest(const std::string& frameHex, std::string& outFrameHex) {
-    return post_json(writeURL, apiKey_, frameHex, outFrameHex);
+    int attempts = 0;
+    while (attempts < 3) {
+        if (post_json(writeURL, apiKey_, frameHex, outFrameHex)) {
+            return true;
+        } else {
+            std::cerr << "sendWriteRequest failed (attempt " << (attempts+1) << ")\n";
+        }
+        attempts++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // brief backoff
+    }
+    return false;
 }
