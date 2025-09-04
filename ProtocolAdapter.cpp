@@ -30,17 +30,32 @@ bool post_json(const std::string& url, const std::string& apiKey,
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
 
     CURLcode res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-    curl_slist_free_all(headers);
-
-    if (res != CURLE_OK) return false;
+    if (res != CURLE_OK) {
+        std::cerr << "CURL error: " << curl_easy_strerror(res) << "\n";
+        std::cerr << "Request body: " << body << "\n";
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(headers);
+        return false;
+    }
 
     auto pos = readBuffer.find("\"frame\":\"");
-    if (pos == std::string::npos) return false;
+    if (pos == std::string::npos) {
+        std::cerr << "Response missing 'frame' field. Response: " << readBuffer << "\n";
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(headers);
+        return false;
+    }
     pos += 9;
     auto end = readBuffer.find("\"", pos);
-    if (end == std::string::npos) return false;
+    if (end == std::string::npos) {
+        std::cerr << "Malformed 'frame' field in response. Response: " << readBuffer << "\n";
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(headers);
+        return false;
+    }
     outFrameHex = readBuffer.substr(pos, end - pos);
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(headers);
     return true;
 }
 
