@@ -7,3 +7,6 @@
 # Don't ignore .cpp and .h files
 !*.cpp
 !*.h
+
+# Don't ignore makefile
+!Makefile

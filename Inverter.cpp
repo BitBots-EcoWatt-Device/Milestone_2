@@ -132,7 +132,21 @@ bool Inverter::getSystemStatus(float &temperature, int &exportPercent, int &outp
 // Write operations
 bool Inverter::setExportPowerPercent(int value)
 {
-    return modbusHandler_.writeRegister(REG_EXPORT_POWER_PERCENT, static_cast<uint16_t>(value * GAIN_1), SLAVE_ADDRESS);
+    // Clamp the value to valid range (0-100)
+    int clampedValue = value;
+    if (value < 0)
+        clampedValue = 0;
+    else if (value > 100)
+        clampedValue = 100;
+
+    // Warn if the value was clamped
+    if (clampedValue != value)
+    {
+        std::cerr << "Warning: Export power percentage " << value
+                  << " is out of range. Clamped to " << clampedValue << std::endl;
+    }
+
+    return modbusHandler_.writeRegister(REG_EXPORT_POWER_PERCENT, static_cast<uint16_t>(clampedValue * GAIN_1), SLAVE_ADDRESS);
 }
 
 ModbusHandler &Inverter::getModbusHandler()
