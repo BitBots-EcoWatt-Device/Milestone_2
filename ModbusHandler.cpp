@@ -1,4 +1,4 @@
-#include "InverterSIM.h"
+#include "ModbusHandler.h"
 #include <iostream>
 #include <vector>
 #include <sstream>
@@ -7,16 +7,56 @@
 #include <algorithm>
 #include <cctype>
 
-InverterSIM::InverterSIM(const std::string &apiKey) : adapter_(apiKey) {}
+ModbusHandler::ModbusHandler(const std::string &apiKey) : adapter_(apiKey) {}
 
-// Helper: CRC function (reuse from ProtocolAdapter.cpp)
-extern uint16_t calculateCRC(const std::vector<uint8_t> &data);
+// ========== Modbus CRC-16 ===========
+uint16_t ModbusHandler::calculateCRC(const std::vector<uint8_t> &data)
+{
+    uint16_t crc = 0xFFFF;
+    for (size_t i = 0; i < data.size(); ++i)
+    {
+        crc ^= data[i];
+        for (int j = 0; j < 8; ++j)
+        {
+            if (crc & 0x0001)
+                crc = (crc >> 1) ^ 0xA001;
+            else
+                crc >>= 1;
+        }
+    }
+    return crc;
+}
 
-// Helper: Modbus error code message (reuse from ProtocolAdapter.cpp)
-extern std::string modbusExceptionMessage(uint8_t code);
+// ========== Error Code Handling ==========
+std::string ModbusHandler::modbusExceptionMessage(uint8_t code)
+{
+    switch (code)
+    {
+    case 0x01:
+        return "Illegal Function (function not supported)";
+    case 0x02:
+        return "Illegal Data Address (address not valid)";
+    case 0x03:
+        return "Illegal Data Value (value out of range)";
+    case 0x04:
+        return "Slave Device Failure";
+    case 0x05:
+        return "Acknowledge (request accepted, processing delayed)";
+    case 0x06:
+        return "Slave Device Busy";
+    case 0x08:
+        return "Memory Parity Error";
+    case 0x0A:
+        return "Gateway Path Unavailable";
+    case 0x0B:
+        return "Gateway Target Device Failed to Respond";
+    default:
+        return "Unknown Modbus Exception";
+    }
+}
 
 // Helper: Build Modbus Read Holding Registers frame
-std::string buildReadFrame(uint8_t slaveAddr, uint16_t startAddr, uint16_t numRegs)
+std::string ModbusHandler::buildReadFrame(uint8_t slaveAddr, uint16_t startAddr, uint16_t numRegs)
 {
     std::vector<uint8_t> frame = {
         slaveAddr,
@@ -34,14 +74,31 @@ std::string buildReadFrame(uint8_t slaveAddr, uint16_t startAddr, uint16_t numRe
     return oss.str();
 }
 
+// Helper: Build Modbus Write Single Register frame
+std::string ModbusHandler::buildWriteFrame(uint8_t slaveAddr, uint16_t regAddr, uint16_t regValue)
+{
+    std::vector<uint8_t> frame = {
+        slaveAddr,
+        0x06, // Function code for Write Single Register
+        static_cast<uint8_t>(regAddr >> 8),
+        static_cast<uint8_t>(regAddr & 0xFF),
+        static_cast<uint8_t>(regValue >> 8),
+        static_cast<uint8_t>(regValue & 0xFF)};
+    uint16_t crc = calculateCRC(frame);
+    frame.push_back(crc & 0xFF);
+    frame.push_back((crc >> 8) & 0xFF);
+    std::ostringstream oss;
+    for (auto b : frame)
+        oss << std::hex << std::setw(2) << std::setfill('0') << (int)b;
+    return oss.str();
+}
+
 // Helper: Parse Modbus Read response (returns vector of register values)
 std::vector<uint16_t> parseReadResponse(const std::string &resp, int numRegs)
 {
     std::vector<uint16_t> regs;
-    // --- CHANGED: cast numRegs to size_t to fix -Wsign-compare ---
     if (resp.size() < 6 + static_cast<size_t>(numRegs) * 4)
         return regs;
-    // -------------------------------------------------------------
     for (int i = 0; i < numRegs; ++i)
     {
         int idx = 6 + i * 4;
@@ -52,10 +109,10 @@ std::vector<uint16_t> parseReadResponse(const std::string &resp, int numRegs)
 }
 
 // Dynamic register read with retry, CRC, error code handling
-bool InverterSIM::readRegisters(uint16_t startAddr, uint16_t numRegs, std::vector<uint16_t> &values)
+bool ModbusHandler::readRegisters(uint16_t startAddr, uint16_t numRegs, std::vector<uint16_t> &values, uint8_t slaveAddr)
 {
     std::string resp;
-    std::string req = buildReadFrame(0x11, startAddr, numRegs);
+    std::string req = buildReadFrame(slaveAddr, startAddr, numRegs);
     int attempts = 0;
     while (attempts < 3)
     {
@@ -109,39 +166,12 @@ bool InverterSIM::readRegisters(uint16_t startAddr, uint16_t numRegs, std::vecto
     return false;
 }
 
-bool InverterSIM::getVoltageCurrent(float &voltage, float &current)
-{
-    std::vector<uint16_t> values;
-    if (!readRegisters(0, 2, values))
-        return false;
-    voltage = values[0] / 10.0f;
-    current = values[1] / 10.0f;
-    return true;
-}
-
-bool InverterSIM::setExportPowerPercent(int value)
+// Write single register with retry, CRC, error code handling
+bool ModbusHandler::writeRegister(uint16_t regAddr, uint16_t regValue, uint8_t slaveAddr)
 {
     std::string resp;
-    // Build frame for writing export power percent (register 8)
-    uint8_t slaveAddr = 0x11;
-    uint16_t regAddr = 8;
-    uint16_t regValue = static_cast<uint16_t>(value);
-    std::vector<uint8_t> frame = {
-        slaveAddr,
-        0x06,
-        static_cast<uint8_t>(regAddr >> 8),
-        static_cast<uint8_t>(regAddr & 0xFF),
-        static_cast<uint8_t>(regValue >> 8),
-        static_cast<uint8_t>(regValue & 0xFF)};
-    uint16_t crc = calculateCRC(frame);
-    frame.push_back(crc & 0xFF);
-    frame.push_back((crc >> 8) & 0xFF);
-    std::ostringstream oss;
-    for (auto b : frame)
-        oss << std::hex << std::setw(2) << std::setfill('0') << (int)b;
-    std::string req = oss.str();
+    std::string req = buildWriteFrame(slaveAddr, regAddr, regValue);
 
-    // --- ADDED: small helper to normalize hex strings for robust comparison ---
     auto normalize_hex = [](std::string s)
     {
         s.erase(std::remove_if(s.begin(), s.end(),
@@ -153,7 +183,6 @@ bool InverterSIM::setExportPowerPercent(int value)
                        { return static_cast<char>(std::toupper(c)); });
         return s;
     };
-    // -------------------------------------------------------------------------
 
     int attempts = 0;
     while (attempts < 3)
@@ -198,11 +227,8 @@ bool InverterSIM::setExportPowerPercent(int value)
             attempts++;
             continue;
         }
-        // Success: echo frame (case/whitespace agnostic)
-        // --- CHANGED: compare normalized hex strings instead of raw strings ---
         if (normalize_hex(resp) == normalize_hex(req))
             return true;
-        // ---------------------------------------------------------------------
         std::cerr << "Write response mismatch (attempt " << (attempts + 1) << ")\n";
         attempts++;
     }

@@ -26,8 +26,4 @@ private:
 bool post_json(const std::string &url, const std::string &apiKey,
                const std::string &frameHex, std::string &outFrameHex);
 
-// CRC and error code helpers for use in other files
-uint16_t calculateCRC(const std::vector<uint8_t> &data);
-std::string modbusExceptionMessage(uint8_t code);
-
 #endif

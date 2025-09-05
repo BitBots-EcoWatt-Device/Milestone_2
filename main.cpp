@@ -3,7 +3,7 @@
 #include <thread>
 #include <mutex>
 #include <chrono>
-#include "InverterSIM.h"
+#include "Inverter.h"
 
 // ================= Buffer & Sample ==================
 struct Sample
@@ -42,14 +42,14 @@ private:
 };
 
 // ================= Loops ==================
-void pollLoop(InverterSIM &sim, DataBuffer &buf,
+void pollLoop(Inverter &inverter, DataBuffer &buf,
               std::chrono::milliseconds pollInt)
 {
     auto start = std::chrono::steady_clock::now();
     while (true)
     {
         float v, i;
-        if (sim.getVoltageCurrent(v, i))
+        if (inverter.getACVoltage(v) && inverter.getACCurrent(i))
         {
             Sample s;
             s.voltage = v;
@@ -91,10 +91,10 @@ void uploadLoop(DataBuffer &buf, std::chrono::milliseconds upInt)
 int main()
 {
     std::string apiKey = "NjhhZWIwNDU1ZDdmMzg3MzNiMTQ5YTFjOjY4YWViMDQ1NWQ3ZjM4NzMzYjE0OWExMg==";
-    InverterSIM sim(apiKey);
+    Inverter inverter(apiKey);
 
     // Demo: write once
-    if (sim.setExportPowerPercent(20))
+    if (inverter.setExportPowerPercent(20))
     {
         std::cout << "Export power set to 20%\n";
     }
@@ -104,11 +104,10 @@ int main()
     }
 
     // Demo: dynamic register read (temperature and export power percent)
-    std::vector<uint16_t> values;
-    if (sim.readRegisters(7, 2, values))
+    float temperature;
+    int exportPercent;
+    if (inverter.getTemperature(temperature) && inverter.getExportPowerPercent(exportPercent))
     {
-        float temperature = values[0] / 10.0f;
-        int exportPercent = values[1];
         std::cout << "Temperature: " << temperature << " C\n";
         std::cout << "Export Power Percent: " << exportPercent << " %\n";
     }
@@ -117,12 +116,44 @@ int main()
         std::cerr << "Failed to read temperature and export power percent\n";
     }
 
-    // Demo: dynamic register read (voltage and current)
-    std::vector<uint16_t> vc_values;
-    if (sim.readRegisters(0, 2, vc_values))
+    // Demo: comprehensive AC measurements
+    float acVoltage, acCurrent, acFrequency;
+    if (inverter.getACMeasurements(acVoltage, acCurrent, acFrequency))
     {
-        float voltage = vc_values[0] / 10.0f;
-        float current = vc_values[1] / 10.0f;
+        std::cout << "AC Measurements - Voltage: " << acVoltage << " V, Current: " << acCurrent << " A, Frequency: " << acFrequency << " Hz\n";
+    }
+    else
+    {
+        std::cerr << "Failed to read AC measurements\n";
+    }
+
+    // Demo: PV input measurements
+    float pv1Voltage, pv2Voltage, pv1Current, pv2Current;
+    if (inverter.getPVMeasurements(pv1Voltage, pv2Voltage, pv1Current, pv2Current))
+    {
+        std::cout << "PV1 - Voltage: " << pv1Voltage << " V, Current: " << pv1Current << " A\n";
+        std::cout << "PV2 - Voltage: " << pv2Voltage << " V, Current: " << pv2Current << " A\n";
+    }
+    else
+    {
+        std::cerr << "Failed to read PV measurements\n";
+    }
+
+    // Demo: system status
+    int outputPower;
+    if (inverter.getSystemStatus(temperature, exportPercent, outputPower))
+    {
+        std::cout << "System Status - Temperature: " << temperature << " C, Export: " << exportPercent << " %, Output Power: " << outputPower << " W\n";
+    }
+    else
+    {
+        std::cerr << "Failed to read system status\n";
+    }
+
+    // Demo: dynamic register read (voltage and current)
+    float voltage, current;
+    if (inverter.getACVoltage(voltage) && inverter.getACCurrent(current))
+    {
         std::cout << "[Dynamic] Voltage: " << voltage << " V\n";
         std::cout << "[Dynamic] Current: " << current << " A\n";
     }
@@ -131,9 +162,9 @@ int main()
         std::cerr << "Failed to read voltage and current registers dynamically\n";
     }
 
-    // Start polling voltage/current as before
+    // Start polling voltage/current
     DataBuffer buffer(30);
-    std::thread pollT(pollLoop, std::ref(sim), std::ref(buffer), std::chrono::milliseconds(5000));
+    std::thread pollT(pollLoop, std::ref(inverter), std::ref(buffer), std::chrono::milliseconds(5000));
     std::thread upT(uploadLoop, std::ref(buffer), std::chrono::milliseconds(30000));
     pollT.join();
     upT.join();
