@@ -5,13 +5,14 @@
 #include "ProtocolAdapter.h"
 #include <vector>
 
-class InverterSIM {
+class InverterSIM
+{
 public:
-    InverterSIM(const std::string& apiKey);
+    InverterSIM(const std::string &apiKey);
 
     bool getVoltageCurrent(float &voltage, float &current);
     bool setExportPowerPercent(int value);
-    bool readRegisters(uint16_t startAddr, uint16_t numRegs, std::vector<uint16_t>& values);
+    bool readRegisters(uint16_t startAddr, uint16_t numRegs, std::vector<uint16_t> &values);
 
 private:
     ProtocolAdapter adapter_;
