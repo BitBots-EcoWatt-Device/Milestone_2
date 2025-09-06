@@ -13,3 +13,6 @@
 
 # Don't ignore config files
 !config.ini
+
+# Don't ignore README.md file
+!README.md
