@@ -4,15 +4,9 @@
 #include <mutex>
 #include <chrono>
 #include "Inverter.h"
+#include "PollingConfig.h"
 
-// ================= Buffer & Sample ==================
-struct Sample
-{
-    float voltage;
-    float current;
-    long long timestamp;
-};
-
+// ================= Buffer ==================
 class DataBuffer
 {
 public:
@@ -43,31 +37,48 @@ private:
 
 // ================= Loops ==================
 void pollLoop(Inverter &inverter, DataBuffer &buf,
-              std::chrono::milliseconds pollInt)
+              std::chrono::milliseconds pollInt, const PollingConfig &config)
 {
     auto start = std::chrono::steady_clock::now();
     while (true)
     {
-        float v, i;
-        if (inverter.getACVoltage(v) && inverter.getACCurrent(i))
+        Sample sample;
+        sample.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::steady_clock::now() - start)
+                               .count();
+
+        bool allSuccess = true;
+        const auto &enabledParams = config.getEnabledParameters();
+
+        for (auto paramType : enabledParams)
         {
-            Sample s;
-            s.voltage = v;
-            s.current = i;
-            s.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                              std::chrono::steady_clock::now() - start)
-                              .count();
-            if (buf.hasSpace())
-                buf.append(s);
+            const auto &paramConfig = config.getParameterConfig(paramType);
+            float value;
+
+            if (paramConfig.readFunction(inverter, value))
+            {
+                sample.setValue(paramType, value);
+            }
+            else
+            {
+                std::cerr << "Failed to read " << paramConfig.name << std::endl;
+                allSuccess = false;
+            }
         }
-        else
+
+        if (allSuccess && buf.hasSpace())
         {
-            std::cerr << "Poll failed\n";
+            buf.append(sample);
         }
+        else if (!allSuccess)
+        {
+            std::cerr << "Poll failed for some parameters\n";
+        }
+
         std::this_thread::sleep_for(pollInt);
     }
 }
-void uploadLoop(DataBuffer &buf, std::chrono::milliseconds upInt)
+void uploadLoop(DataBuffer &buf, std::chrono::milliseconds upInt, const PollingConfig &config)
 {
     while (true)
     {
@@ -78,8 +89,19 @@ void uploadLoop(DataBuffer &buf, std::chrono::milliseconds upInt)
             std::cout << "Uploading " << data.size() << " samples\n";
             for (auto &s : data)
             {
-                std::cout << "t=" << s.timestamp << " ms V=" << s.voltage
-                          << " I=" << s.current << "\n";
+                std::cout << "t=" << s.timestamp << " ms";
+
+                // Print all polled parameters
+                for (auto paramType : config.getEnabledParameters())
+                {
+                    if (s.hasValue(paramType))
+                    {
+                        const auto &paramConfig = config.getParameterConfig(paramType);
+                        std::cout << " " << paramConfig.name << "=" << s.getValue(paramType)
+                                  << paramConfig.unit;
+                    }
+                }
+                std::cout << "\n";
             }
         }
         else
@@ -164,10 +186,25 @@ int main()
         std::cerr << "Failed to read voltage and current registers dynamically\n";
     }
 
-    // Start polling voltage/current
+    // ================= Dynamic Polling Configuration Demo ===================
+    std::cout << "\n=== Dynamic Polling Configuration ===\n";
+
+    // Create and configure polling parameters
+    PollingConfig pollingConfig;
+
+    // Configure to poll AC Voltage and Current only
+    std::cout << "\nConfiguring to poll AC voltage and AC current...\n";
+    pollingConfig.setParameters({ParameterType::AC_VOLTAGE, ParameterType::AC_CURRENT});
+    pollingConfig.printEnabledParameters();
+
+    // Start polling with the configured parameters
+    std::cout << "\n=== Starting Dynamic Polling ===\n";
+
     DataBuffer buffer(30);
-    std::thread pollT(pollLoop, std::ref(inverter), std::ref(buffer), std::chrono::milliseconds(5000));
-    std::thread upT(uploadLoop, std::ref(buffer), std::chrono::milliseconds(30000));
+    std::thread pollT(pollLoop, std::ref(inverter), std::ref(buffer),
+                      std::chrono::milliseconds(5000), std::ref(pollingConfig));
+    std::thread upT(uploadLoop, std::ref(buffer), std::chrono::milliseconds(30000),
+                    std::ref(pollingConfig));
     pollT.join();
     upT.join();
     return 0;
