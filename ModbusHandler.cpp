@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cctype>
 
-ModbusHandler::ModbusHandler(const std::string &apiKey) : adapter_(apiKey) {}
+ModbusHandler::ModbusHandler() : adapter_() {}
 
 // ========== Modbus CRC-16 ===========
 uint16_t ModbusHandler::calculateCRC(const std::vector<uint8_t> &data)

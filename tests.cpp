@@ -32,8 +32,6 @@
 #include <streambuf>
 #include "ModbusHandler.h"
 
-const std::string API_KEY = "NjhhZWIwNDU1ZDdmMzg3MzNiMTQ5YTFjOjY4YWViMDQ1NWQ3ZjM4NzMzYjE0OWExMg==";
-
 // Helper class to capture stderr output
 class CaptureStderr
 {
@@ -64,7 +62,7 @@ void testInvalidFrame()
 {
     std::cout << "\n=== Test 1: Invalid Modbus Frame (Should get blank response) ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
     std::vector<uint16_t> values;
 
     // Capture error output
@@ -115,7 +113,7 @@ void testWriteToReadOnlyRegister()
 {
     std::cout << "\n=== Test 2: Write to Read-Only Register (Should get error code 0x02) ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
 
     // Capture error output
     CaptureStderr capture;
@@ -166,7 +164,7 @@ void testInvalidRegister()
 {
     std::cout << "\n=== Test 3: Invalid Register Address (Should get error code 0x02) ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
     std::vector<uint16_t> values;
 
     // Capture error output
@@ -224,7 +222,7 @@ void testInvalidContent()
 {
     std::cout << "\n=== Test 4: Valid Frame but Invalid Content (Should get error code 0x03) ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
     std::vector<uint16_t> values;
 
     // Capture error output
@@ -281,7 +279,7 @@ void testValidOperations()
 {
     std::cout << "\n=== Test 5: Valid Operations ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
     std::vector<uint16_t> values;
 
     // Test valid read
@@ -310,7 +308,7 @@ void testCRCCalculation()
 {
     std::cout << "\n=== Test 6: CRC Calculation ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
 
     // Test CRC with known data
     std::vector<uint8_t> testData = {0x11, 0x03, 0x00, 0x00, 0x00, 0x01};
@@ -332,7 +330,7 @@ void testSuccessfulWrite()
 {
     std::cout << "\n=== Test 7: Successful Write (Should echo request) ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
 
     // According to API docs: successful write should echo the same frame back
     std::cout << "Testing write to a potentially writable register..." << std::endl;
@@ -385,7 +383,7 @@ void testErrorMessages()
 {
     std::cout << "\n=== Test 8: Error Code Meanings ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
 
     // Test the error message function with all documented codes
     std::cout << "Error code 0x01: " << handler.modbusExceptionMessage(0x01) << std::endl;
@@ -403,7 +401,7 @@ void testSpecificErrorScenarios()
 {
     std::cout << "\n=== Test 9: Specific Error Scenarios ===" << std::endl;
 
-    ModbusHandler handler(API_KEY);
+    ModbusHandler handler;
 
     // Test 1: Try different invalid register addresses
     std::cout << "\nTesting various invalid register addresses:" << std::endl;

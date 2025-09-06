@@ -1,4 +1,5 @@
 #include "ProtocolAdapter.h"
+#include "Config.h"
 #include <curl/curl.h>
 #include <iostream>
 #include <vector>
@@ -52,14 +53,41 @@ bool post_json(const std::string &url, const std::string &apiKey,
 }
 
 // ========== ProtocolAdapter methods ==========
-ProtocolAdapter::ProtocolAdapter(const std::string &apiKey) : apiKey_(apiKey) {}
+ProtocolAdapter::ProtocolAdapter()
+{
+    if (!initializeConfig())
+    {
+        std::cerr << "Error: Failed to initialize ProtocolAdapter configuration" << std::endl;
+    }
+}
+
+bool ProtocolAdapter::initializeConfig()
+{
+    Config &config = Config::getInstance();
+
+    // Load config if not already loaded
+    if (!config.isLoaded())
+    {
+        if (!config.loadFromFile())
+        {
+            return false;
+        }
+    }
+
+    // Get configuration values
+    apiKey_ = config.getApiKey();
+    readURL_ = config.getReadUrl();
+    writeURL_ = config.getWriteUrl();
+
+    return !apiKey_.empty() && !readURL_.empty() && !writeURL_.empty();
+}
 
 bool ProtocolAdapter::sendReadRequest(const std::string &frameHex, std::string &outFrameHex)
 {
-    return post_json(readURL, apiKey_, frameHex, outFrameHex);
+    return post_json(readURL_, apiKey_, frameHex, outFrameHex);
 }
 
 bool ProtocolAdapter::sendWriteRequest(const std::string &frameHex, std::string &outFrameHex)
 {
-    return post_json(writeURL, apiKey_, frameHex, outFrameHex);
+    return post_json(writeURL_, apiKey_, frameHex, outFrameHex);
 }

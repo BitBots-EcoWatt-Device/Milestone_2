@@ -8,7 +8,7 @@
 class ProtocolAdapter
 {
 public:
-    ProtocolAdapter(const std::string &apiKey);
+    ProtocolAdapter();
 
     // Send a read frame and return response hex
     bool sendReadRequest(const std::string &frameHex, std::string &outFrameHex);
@@ -17,9 +17,11 @@ public:
     bool sendWriteRequest(const std::string &frameHex, std::string &outFrameHex);
 
 private:
+    // Configuration is loaded from config file
+    bool initializeConfig();
     std::string apiKey_;
-    const std::string readURL = "http://20.15.114.131:8080/api/inverter/read";
-    const std::string writeURL = "http://20.15.114.131:8080/api/inverter/write";
+    std::string readURL_;
+    std::string writeURL_;
 };
 
 // Internal helper (hidden from main)

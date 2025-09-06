@@ -1,7 +1,7 @@
 #include "Inverter.h"
 #include <iostream>
 
-Inverter::Inverter(const std::string &apiKey) : modbusHandler_(apiKey) {}
+Inverter::Inverter() : modbusHandler_() {}
 
 // Individual register read operations
 bool Inverter::getACVoltage(float &voltage)

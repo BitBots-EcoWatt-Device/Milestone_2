@@ -90,8 +90,10 @@ void uploadLoop(DataBuffer &buf, std::chrono::milliseconds upInt)
 // ================= Main ==================
 int main()
 {
-    std::string apiKey = "NjhhZWIwNDU1ZDdmMzg3MzNiMTQ5YTFjOjY4YWViMDQ1NWQ3ZjM4NzMzYjE0OWExMg==";
-    Inverter inverter(apiKey);
+    std::cout << "=== Inverter Communication Demo ===\n";
+
+    // Create Inverter instance (configuration loaded automatically)
+    Inverter inverter;
 
     // Demo: write once
     if (inverter.setExportPowerPercent(20))

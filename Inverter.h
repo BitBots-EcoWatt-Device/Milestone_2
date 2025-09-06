@@ -7,7 +7,7 @@
 class Inverter
 {
 public:
-    Inverter(const std::string &apiKey);
+    Inverter();
 
     // Individual register read operations
     bool getACVoltage(float &voltage);              // Register 0: Vac1/L1 Phase voltage

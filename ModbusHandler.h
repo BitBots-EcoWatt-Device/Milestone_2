@@ -9,7 +9,7 @@
 class ModbusHandler
 {
 public:
-    ModbusHandler(const std::string &apiKey);
+    ModbusHandler();
 
     // Core Modbus protocol operations
     bool readRegisters(uint16_t startAddr, uint16_t numRegs, std::vector<uint16_t> &values, uint8_t slaveAddr = 0x11);
