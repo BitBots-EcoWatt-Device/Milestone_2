@@ -1,0 +1,15 @@
+# Ignore everything
+*
+
+# Don't ignore .gitignore
+!.gitignore
+
+# Don't ignore .cpp and .h files
+!*.cpp
+!*.h
+
+# Don't ignore makefile
+!Makefile
+
+# Don't ignore config files
+!config.ini
