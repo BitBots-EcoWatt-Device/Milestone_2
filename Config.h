@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <cstdint>
 
 class Config
 {

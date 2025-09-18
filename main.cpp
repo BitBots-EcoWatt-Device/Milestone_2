@@ -194,7 +194,7 @@ int main()
 
     // Configure to poll AC Voltage and Current only
     std::cout << "\nConfiguring to poll AC voltage and AC current...\n";
-    pollingConfig.setParameters({ParameterType::AC_VOLTAGE, ParameterType::AC_CURRENT});
+    pollingConfig.setParameters({ParameterType::AC_VOLTAGE, ParameterType::AC_CURRENT, ParameterType::AC_FREQUENCY});
     pollingConfig.printEnabledParameters();
 
     // Start polling with the configured parameters
